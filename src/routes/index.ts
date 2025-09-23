@@ -1,6 +1,7 @@
 import express, { Application } from "express";
 import authRouter from "./auth.route";
 import businessRouter from "./business.route";
+import ordersRouter from "./orders.route";
 
 function routerApi(app: Application) {
   const router = express.Router();
@@ -11,6 +12,9 @@ function routerApi(app: Application) {
   
   // Business routes (public - no authentication required)
   router.use("/business", businessRouter);
+  
+  // Orders routes (private - authentication required)
+  router.use("/orders", ordersRouter);
 }
 
 export default routerApi;
