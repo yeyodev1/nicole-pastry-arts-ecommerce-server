@@ -34,7 +34,7 @@ export interface IUser extends Document {
     country: string;
     isDefault: boolean;
   }[];
-  sales: Types.ObjectId[]; // References to Sale model
+  orders: Types.ObjectId[]; // References to Order model
   socialLogin?: {
     provider: 'google' | 'facebook' | 'apple';
     providerId: string;
@@ -178,9 +178,9 @@ const userSchema = new Schema<IUser>({
       default: false
     }
   }],
-  sales: [{
+  orders: [{
     type: Schema.Types.ObjectId,
-    ref: 'Sale'
+    ref: 'Order'
   }],
   socialLogin: {
     provider: {
