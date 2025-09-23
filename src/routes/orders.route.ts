@@ -7,8 +7,13 @@ import {
   deleteOrder,
   getOrdersByCustomer
 } from "../controllers/order.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { wrapAuthHandler } from "../utils/auth-wrapper";
 
 const router = Router();
+
+// Apply authentication middleware to all routes
+router.use(authMiddleware.authenticate);
 
 /**
  * @route POST /api/orders
@@ -45,7 +50,7 @@ const router = Router();
  *   createdBy: ObjectId
  * }
  */
-router.post("/", createOrder);
+router.post("/", wrapAuthHandler(createOrder));
 
 /**
  * @route GET /api/orders
@@ -62,7 +67,7 @@ router.post("/", createOrder);
  *   endDate?: string (ISO date)
  * }
  */
-router.get("/", getAllOrders);
+router.get("/", wrapAuthHandler(getAllOrders));
 
 /**
  * @route GET /api/orders/customer/:customerId
@@ -76,7 +81,7 @@ router.get("/", getAllOrders);
  *   limit?: number
  * }
  */
-router.get("/customer/:customerId", getOrdersByCustomer);
+router.get("/customer/:customerId", wrapAuthHandler(getOrdersByCustomer));
 
 /**
  * @route GET /api/orders/:id
@@ -86,7 +91,7 @@ router.get("/customer/:customerId", getOrdersByCustomer);
  *   id: ObjectId
  * }
  */
-router.get("/:id", getOrderById);
+router.get("/:id", wrapAuthHandler(getOrderById));
 
 /**
  * @route PUT /api/orders/:id
@@ -128,7 +133,7 @@ router.get("/:id", getOrderById);
  *   updatedBy?: ObjectId
  * }
  */
-router.put("/:id", updateOrder);
+router.put("/:id", wrapAuthHandler(updateOrder));
 
 /**
  * @route DELETE /api/orders/:id
@@ -138,6 +143,6 @@ router.put("/:id", updateOrder);
  *   id: ObjectId
  * }
  */
-router.delete("/:id", deleteOrder);
+router.delete("/:id", wrapAuthHandler(deleteOrder));
 
 export default router;
