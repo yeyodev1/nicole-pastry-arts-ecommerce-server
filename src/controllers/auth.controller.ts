@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "../services/auth.service";
 import { HttpStatusCode } from "axios";
+import { handleControllerError, createValidationError } from "../utils/error-handler";
 
 const authService = new AuthService();
 
@@ -11,27 +12,18 @@ export async function register(req: Request, res: Response, next: NextFunction):
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "First name, last name, email, and password are required."
-      });
-      return;
+      throw createValidationError("First name, last name, email, and password are required.");
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Please provide a valid email address."
-      });
-      return;
+      throw createValidationError("Please provide a valid email address.");
     }
 
     // Validate password strength
     if (password.length < 8) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Password must be at least 8 characters long."
-      });
-      return;
+      throw createValidationError("Password must be at least 8 characters long.");
     }
 
     const result = await authService.registerUser({
@@ -50,18 +42,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
     return;
 
   } catch (error: any) {
-    console.error("Registration error:", error);
-    
-    if (error.message.includes("already exists")) {
-      res.status(HttpStatusCode.Conflict).send({
-        message: error.message
-      });
-      return;
-    }
-
-    res.status(HttpStatusCode.InternalServerError).send({
-      message: "An error occurred during registration. Please try again."
-    });
+    handleControllerError(error, res, "Registration");
     return;
   }
 }
@@ -72,10 +53,7 @@ export async function confirmEmail(req: Request, res: Response, next: NextFuncti
     const { token } = req.body;
 
     if (!token) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Verification token is required."
-      });
-      return;
+      throw createValidationError("Verification token is required.");
     }
 
     await authService.confirmEmail(token);
@@ -86,18 +64,7 @@ export async function confirmEmail(req: Request, res: Response, next: NextFuncti
     return;
 
   } catch (error: any) {
-    console.error("Email confirmation error:", error);
-    
-    if (error.message.includes("Invalid") || error.message.includes("expired")) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: error.message
-      });
-      return;
-    }
-
-    res.status(HttpStatusCode.InternalServerError).send({
-      message: "An error occurred during email verification. Please try again."
-    });
+    handleControllerError(error, res, "Email confirmation");
     return;
   }
 }
@@ -109,19 +76,13 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 
     // Validate required fields
     if (!email || !password) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Email and password are required."
-      });
-      return;
+      throw createValidationError("Email and password are required.");
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Please provide a valid email address."
-      });
-      return;
+      throw createValidationError("Please provide a valid email address.");
     }
 
     const result = await authService.loginUser({
@@ -137,18 +98,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     return;
 
   } catch (error: any) {
-    console.error("Login error:", error);
-    
-    if (error.message.includes("Invalid") || error.message.includes("verify")) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        message: error.message
-      });
-      return;
-    }
-
-    res.status(HttpStatusCode.InternalServerError).send({
-      message: "An error occurred during login. Please try again."
-    });
+    handleControllerError(error, res, "Login");
     return;
   }
 }
