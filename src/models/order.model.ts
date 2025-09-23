@@ -36,6 +36,11 @@ export interface IOrder extends Document {
     country: string;
     recipientName: string;
     recipientPhone: string;
+    // Google Maps location fields
+    latitude?: number;
+    longitude?: number;
+    googleMapsLink?: string;
+    locationNotes?: string; // Additional location instructions
   };
   billingAddress?: {
     street: string;
@@ -45,6 +50,11 @@ export interface IOrder extends Document {
     country: string;
     recipientName: string;
     recipientPhone: string;
+    // Google Maps location fields
+    latitude?: number;
+    longitude?: number;
+    googleMapsLink?: string;
+    locationNotes?: string; // Additional location instructions
   };
   shippingMethod: 'pickup' | 'delivery' | 'shipping';
   shippingCost: number;
@@ -223,6 +233,33 @@ const orderSchema = new Schema<IOrder>({
       type: String,
       required: [true, 'Recipient phone is required'],
       trim: true
+    },
+    // Google Maps location fields
+    latitude: {
+      type: Number,
+      min: [-90, 'Latitude must be between -90 and 90'],
+      max: [90, 'Latitude must be between -90 and 90']
+    },
+    longitude: {
+      type: Number,
+      min: [-180, 'Longitude must be between -180 and 180'],
+      max: [180, 'Longitude must be between -180 and 180']
+    },
+    googleMapsLink: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(v: string) {
+          if (!v) return true; // Optional field
+          return /^https:\/\/(www\.)?google\.com\/maps/.test(v) || /^https:\/\/maps\.google\.com/.test(v) || /^https:\/\/goo\.gl\/maps/.test(v);
+        },
+        message: 'Google Maps link must be a valid Google Maps URL'
+      }
+    },
+    locationNotes: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Location notes cannot exceed 300 characters']
     }
   },
   billingAddress: {
@@ -254,6 +291,33 @@ const orderSchema = new Schema<IOrder>({
     recipientPhone: {
       type: String,
       trim: true
+    },
+    // Google Maps location fields
+    latitude: {
+      type: Number,
+      min: [-90, 'Latitude must be between -90 and 90'],
+      max: [90, 'Latitude must be between -90 and 90']
+    },
+    longitude: {
+      type: Number,
+      min: [-180, 'Longitude must be between -180 and 180'],
+      max: [180, 'Longitude must be between -180 and 180']
+    },
+    googleMapsLink: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(v: string) {
+          if (!v) return true; // Optional field
+          return /^https:\/\/(www\.)?google\.com\/maps/.test(v) || /^https:\/\/maps\.google\.com/.test(v) || /^https:\/\/goo\.gl\/maps/.test(v);
+        },
+        message: 'Google Maps link must be a valid Google Maps URL'
+      }
+    },
+    locationNotes: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Location notes cannot exceed 300 characters']
     }
   },
   shippingMethod: {
