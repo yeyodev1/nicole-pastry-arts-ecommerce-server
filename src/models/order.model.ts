@@ -118,7 +118,6 @@ const orderSchema = new Schema<IOrder>({
   orderNumber: {
     type: String,
     required: [true, 'Order number is required'],
-    unique: true,
     trim: true
   },
   customer: {
