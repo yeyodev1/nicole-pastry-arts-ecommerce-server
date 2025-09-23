@@ -8,12 +8,13 @@ import {
   autoGenerateGoogleMapsLink,
   extractCoordinatesFromGoogleMapsLink 
 } from "../utils/google-maps";
+import { AuthRequest } from "../types/auth.types";
 
 /**
  * Create a new order
  * @route POST /api/orders
  */
-async function createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function createOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const {
       customer,
@@ -34,9 +35,11 @@ async function createOrder(req: Request, res: Response, next: NextFunction): Pro
       estimatedDeliveryDate,
       notes,
       internalNotes,
-      mercatelyOrderId,
-      createdBy
+      mercatelyOrderId
     } = req.body;
+
+    // Get authenticated user as createdBy
+    const createdBy = req.user._id;
 
     // Validate required fields
     if (!customer || !items || !Array.isArray(items) || items.length === 0) {
@@ -53,27 +56,11 @@ async function createOrder(req: Request, res: Response, next: NextFunction): Pro
       return;
     }
 
-    if (!createdBy || !Types.ObjectId.isValid(createdBy)) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Valid createdBy user ID is required."
-      });
-      return;
-    }
-
     // Validate customer exists
     const customerExists = await models.user.findById(customer);
     if (!customerExists) {
       res.status(HttpStatusCode.NotFound).send({
         message: "Customer not found."
-      });
-      return;
-    }
-
-    // Validate createdBy user exists
-    const createdByUser = await models.user.findById(createdBy);
-    if (!createdByUser) {
-      res.status(HttpStatusCode.NotFound).send({
-        message: "CreatedBy user not found."
       });
       return;
     }
@@ -160,7 +147,7 @@ async function createOrder(req: Request, res: Response, next: NextFunction): Pro
  * Get all orders with pagination and filtering
  * @route GET /api/orders
  */
-async function getAllOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function getAllOrders(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -239,7 +226,7 @@ async function getAllOrders(req: Request, res: Response, next: NextFunction): Pr
  * Get order by ID
  * @route GET /api/orders/:id
  */
-async function getOrderById(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function getOrderById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;
 
@@ -278,21 +265,17 @@ async function getOrderById(req: Request, res: Response, next: NextFunction): Pr
  * Update order by ID
  * @route PUT /api/orders/:id
  */
-async function updateOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function updateOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;
-    const { updatedBy, ...updateData } = req.body;
+    const updateData = req.body;
+
+    // Set updatedBy to authenticated user
+    updateData.updatedBy = req.user._id;
 
     if (!Types.ObjectId.isValid(id)) {
       res.status(HttpStatusCode.BadRequest).send({
         message: "Invalid order ID format."
-      });
-      return;
-    }
-
-    if (updatedBy && !Types.ObjectId.isValid(updatedBy)) {
-      res.status(HttpStatusCode.BadRequest).send({
-        message: "Invalid updatedBy user ID format."
       });
       return;
     }
@@ -304,18 +287,6 @@ async function updateOrder(req: Request, res: Response, next: NextFunction): Pro
         message: "Order not found."
       });
       return;
-    }
-
-    // If updatedBy is provided, validate user exists
-    if (updatedBy) {
-      const updatedByUser = await models.user.findById(updatedBy);
-      if (!updatedByUser) {
-        res.status(HttpStatusCode.NotFound).send({
-          message: "UpdatedBy user not found."
-        });
-        return;
-      }
-      updateData.updatedBy = updatedBy;
     }
 
     // Validate Google Maps location data if shippingAddress is being updated
@@ -375,7 +346,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction): Pro
  * Delete order by ID
  * @route DELETE /api/orders/:id
  */
-async function deleteOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function deleteOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;
 
@@ -417,7 +388,7 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction): Pro
  * Get orders by customer ID
  * @route GET /api/orders/customer/:customerId
  */
-async function getOrdersByCustomer(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function getOrdersByCustomer(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { customerId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
