@@ -1,5 +1,5 @@
 import * as dotenv from "dotenv";
-import createApp from "./src/app";
+import createApp from "./app";
 import dbConnect from "./config/mongo";
 import { initializeSchedulers } from "./schedulers";
 
