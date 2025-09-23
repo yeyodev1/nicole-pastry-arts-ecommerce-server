@@ -230,10 +230,39 @@ export class MercatelyService {
         throw new Error('Category ID is required and must be a string');
       }
 
-      const params = { category_id: categoryId, ...(page && { page }) };
-      const response: AxiosResponse<MercatelyProductsResponse> = await this.apiClient.get('/products', { params });
-      
-      return response.data;
+      // Since Mercately API doesn't support filtering by category directly,
+      // we need to fetch all products and filter them locally
+      let allProducts: MercatelyProduct[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+
+      // Fetch all products from all pages
+      do {
+        const response: AxiosResponse<MercatelyProductsResponse> = await this.apiClient.get('/products', { 
+          params: { page: currentPage } 
+        });
+        
+        allProducts = allProducts.concat(response.data.products);
+        totalPages = response.data.total_pages;
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      // Filter products by category
+      const filteredProducts = allProducts.filter(product => 
+        product.category && product.category.web_id === categoryId
+      );
+
+      // Apply pagination to filtered results
+      const itemsPerPage = 20; // Default pagination size
+      const startIndex = page ? (page - 1) * itemsPerPage : 0;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+      const filteredTotalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+      return {
+        products: paginatedProducts,
+        total_pages: filteredTotalPages
+      };
     } catch (error: any) {
       console.error(`Error fetching products by category ${categoryId} from Mercately:`, error.response?.data || error.message);
       throw createEmailServiceError(`Failed to fetch products by category ${categoryId} from Mercately API`);
