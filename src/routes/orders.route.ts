@@ -46,9 +46,9 @@ router.use(authMiddleware.authenticate);
  *   estimatedDeliveryDate?: Date,
  *   notes?: string,
  *   internalNotes?: string,
- *   mercatelyOrderId?: string,
- *   createdBy: ObjectId
+ *   mercatelyOrderId?: string
  * }
+ * @note createdBy is automatically assigned from authenticated user
  */
 router.post("/", wrapAuthHandler(createOrder));
 
