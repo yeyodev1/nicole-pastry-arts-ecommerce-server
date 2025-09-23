@@ -100,7 +100,7 @@ export class ResendService {
             </div>
           </div>
           <div style="background-color: #f6f1ee; padding: 20px; text-align: center; color: #666666;">
-            <p>© 2024 Nicole Pastry Arts - nicole.com.ec</p>
+            <p>© ${new Date().getFullYear()} Nicole Pastry Arts - nicole.com.ec</p>
           </div>
         </div>
       `;
