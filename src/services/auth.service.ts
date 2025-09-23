@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import crypto from 'crypto';
 import models from '../models';
 import { IUser } from '../models/user.model';
+import { ResendService } from './resend.service';
 
 export interface RegisterData {
   firstName: string;
@@ -27,10 +28,12 @@ export class AuthService {
   private readonly JWT_SECRET: string;
   private readonly JWT_EXPIRES_IN: string;
   private readonly SALT_ROUNDS: number = 12;
+  private readonly resendService: ResendService;
 
   constructor() {
     this.JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
     this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+    this.resendService = new ResendService();
   }
 
   async hashPassword(password: string): Promise<string> {
@@ -89,6 +92,20 @@ export class AuthService {
 
     await user.save();
 
+    // Send verification email
+    try {
+      await this.resendService.sendVerificationEmail(
+        user.email,
+        user.firstName,
+        verificationToken
+      );
+      console.log('Verification email sent successfully to:', user.email);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Throw error to be handled by controller
+      throw new Error(`Failed to send verification email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
+    }
+
     return { user, verificationToken };
   }
 
@@ -105,6 +122,19 @@ export class AuthService {
     user.isEmailVerified = true;
     user.emailVerificationToken = undefined;
     await user.save();
+
+    // Send welcome email after successful verification
+    try {
+      await this.resendService.sendWelcomeEmail(
+        user.email,
+        user.firstName
+      );
+      console.log('Welcome email sent successfully to:', user.email);
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Throw error to be handled by controller
+      throw new Error(`Failed to send welcome email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
+    }
 
     return user;
   }
