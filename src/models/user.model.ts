@@ -62,7 +62,8 @@ const userSchema = new Schema<IUser>({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'],
+    index: true
   },
   password: {
     type: String,
@@ -91,11 +92,13 @@ const userSchema = new Schema<IUser>({
   role: {
     type: String,
     enum: ['customer', 'admin', 'staff'],
-    default: 'customer'
+    default: 'customer',
+    index: true
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    index: true
   },
   isEmailVerified: {
     type: Boolean,
@@ -188,10 +191,7 @@ const userSchema = new Schema<IUser>({
   versionKey: false
 });
 
-// Indexes for better performance
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ isActive: 1 });
+// Index for createdAt sorting
 userSchema.index({ createdAt: -1 });
 
 // Virtual for full name
