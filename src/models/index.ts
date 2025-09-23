@@ -1,9 +1,9 @@
 import user from './user.model';
-import sale from './sale.model';
+import order from './order.model';
 
 const models = {
   user,
-  sale,
+  order,
 };
 
 export default models;
