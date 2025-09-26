@@ -26,7 +26,7 @@ export interface IOrder extends Document {
   total: number;
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
-  paymentMethod: 'cash' | 'card' | 'transfer' | 'mercately' | 'other';
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'mercately' | 'payphone' | 'other';
   paymentReference?: string;
   shippingAddress: {
     street: string;
@@ -117,7 +117,7 @@ const orderItemSchema = new Schema<IOrderItem>({
 const orderSchema = new Schema<IOrder>({
   orderNumber: {
     type: String,
-    required: [true, 'Order number is required'],
+    required: false,
     trim: true
   },
   customer: {
@@ -188,7 +188,7 @@ const orderSchema = new Schema<IOrder>({
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'card', 'transfer', 'mercately', 'other'],
+    enum: ['cash', 'card', 'transfer', 'mercately', 'payphone', 'other'],
     required: [true, 'Payment method is required']
   },
   paymentReference: {
@@ -408,9 +408,15 @@ orderSchema.pre('save', async function(this: IOrder, next: any) {
   }
   
   // Validate that total matches calculated total
-  const calculatedTotal = this.subtotal + this.tax + this.shippingCost - this.discount;
-  if (Math.abs(this.total - calculatedTotal) > 0.01) {
-    return next(new Error('Total amount does not match calculated total'));
+  const calculatedTotal = Number((this.subtotal + this.tax + this.shippingCost - this.discount).toFixed(2));
+  const providedTotal = Number(this.total.toFixed(2));
+  
+  if (Math.abs(providedTotal - calculatedTotal) > 0.01) {
+    return next(new Error(
+      `Total amount does not match calculated total. ` +
+      `Provided: ${providedTotal}, Calculated: ${calculatedTotal} ` +
+      `(Subtotal: ${this.subtotal}, Tax: ${this.tax}, Shipping: ${this.shippingCost}, Discount: ${this.discount})`
+    ));
   }
   
   next();
@@ -419,16 +425,27 @@ orderSchema.pre('save', async function(this: IOrder, next: any) {
 // Pre-save middleware to validate item totals
 orderSchema.pre('save', function(this: IOrder, next: any) {
   for (const item of this.items) {
-    const calculatedTotal = item.quantity * item.unitPrice;
-    if (Math.abs(item.totalPrice - calculatedTotal) > 0.01) {
-      return next(new Error(`Item total for ${item.productName} does not match calculated total`));
+    const calculatedTotal = Number((item.quantity * item.unitPrice).toFixed(2));
+    const providedTotal = Number(item.totalPrice.toFixed(2));
+    
+    if (Math.abs(providedTotal - calculatedTotal) > 0.01) {
+      return next(new Error(
+        `Item total for ${item.productName} does not match calculated total. ` +
+        `Provided: ${providedTotal}, Calculated: ${calculatedTotal} ` +
+        `(Quantity: ${item.quantity}, Unit Price: ${item.unitPrice})`
+      ));
     }
   }
   
   // Validate subtotal matches sum of item totals
-  const calculatedSubtotal = this.items.reduce((sum, item) => sum + item.totalPrice, 0);
-  if (Math.abs(this.subtotal - calculatedSubtotal) > 0.01) {
-    return next(new Error('Subtotal does not match sum of item totals'));
+  const calculatedSubtotal = Number(this.items.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2));
+  const providedSubtotal = Number(this.subtotal.toFixed(2));
+  
+  if (Math.abs(providedSubtotal - calculatedSubtotal) > 0.01) {
+    return next(new Error(
+      `Subtotal does not match sum of item totals. ` +
+      `Provided: ${providedSubtotal}, Calculated: ${calculatedSubtotal}`
+    ));
   }
   
   next();
