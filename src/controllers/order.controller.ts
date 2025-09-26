@@ -8,6 +8,7 @@ import {
   autoGenerateGoogleMapsLink,
   extractCoordinatesFromGoogleMapsLink 
 } from "../utils/google-maps";
+import { convertOrderMonetaryValues } from "../utils/currency";
 import { AuthRequest } from "../types/auth.types";
 
 /**
@@ -40,6 +41,9 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
 
     // Get authenticated user as createdBy
     const createdBy = req.user._id;
+
+    // Convert monetary values from cents to dollars
+    const convertedOrderData = convertOrderMonetaryValues(req.body);
 
     // Validate required fields
     if (!customer || !items || !Array.isArray(items) || items.length === 0) {
@@ -100,23 +104,30 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       autoGenerateGoogleMapsLink(shippingAddress);
     }
 
-    // Create the order
+    // Calculate the correct total from converted values
+    const calculatedSubtotal = convertedOrderData.subtotal || 0;
+    const calculatedTax = convertedOrderData.tax || 0;
+    const calculatedShipping = convertedOrderData.shippingCost || 0;
+    const calculatedDiscount = convertedOrderData.discount || 0;
+    const calculatedTotal = calculatedSubtotal + calculatedTax + calculatedShipping - calculatedDiscount;
+
+    // Create the order using converted monetary values and calculated total
     const newOrder = new models.order({
       customer,
-      items,
-      subtotal: subtotal || 0,
-      tax: tax || 0,
+      items: convertedOrderData.items,
+      subtotal: calculatedSubtotal,
+      tax: calculatedTax,
       taxRate: taxRate || 0,
-      discount: discount || 0,
+      discount: calculatedDiscount,
       discountType: discountType || 'fixed',
       discountCode,
-      total: total || subtotal || 0,
+      total: Number(calculatedTotal.toFixed(2)), // Use calculated total instead of provided
       paymentMethod: paymentMethod || 'cash',
       paymentReference,
       shippingAddress,
       billingAddress,
       shippingMethod: shippingMethod || 'delivery',
-      shippingCost: shippingCost || 0,
+      shippingCost: calculatedShipping,
       estimatedDeliveryDate,
       notes,
       internalNotes,
