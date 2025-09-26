@@ -16,8 +16,8 @@ export default function createApp() {
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:8101",
-    "https://automatizations.bakano.ec",
-    "https://brand.bakano.ec"
+    "https://nicole-pastry-arts.netlify.app",
+    "https://achieved-dive-microwave-occurs.trycloudflare.com"
   ];
 
   const corsOptions = {
@@ -46,7 +46,7 @@ export default function createApp() {
   app.use(express.json({ limit: "50mb" }));
 
   app.get("/", (_req, res: Response) => {
-    res.send("BAKANO MVP STORYBRAND IS ALIVEEEEEEE:)");
+    res.send("NICOLE PASTRY ARTS SERVER ECOMMERCE BACKAPP IS ALIVEEEEEEE:)");
   });
 
   routerApi(app);
