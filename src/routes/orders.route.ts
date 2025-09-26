@@ -37,7 +37,7 @@ router.use(authMiddleware.authenticate);
  *   discountType?: 'fixed' | 'percentage',
  *   discountCode?: string,
  *   total: number,
- *   paymentMethod?: 'cash' | 'card' | 'transfer' | 'mercately',
+ *   paymentMethod?: 'cash' | 'card' | 'transfer' | 'mercately' | 'payphone' | 'other',
  *   paymentReference?: string,
  *   shippingAddress?: object,
  *   billingAddress?: object,
@@ -49,6 +49,7 @@ router.use(authMiddleware.authenticate);
  *   mercatelyOrderId?: string
  * }
  * @note createdBy is automatically assigned from authenticated user
+ * @note orderNumber is automatically generated (format: ORDER-YYYY-MM-XXX)
  */
 router.post("/", wrapAuthHandler(createOrder));
 
