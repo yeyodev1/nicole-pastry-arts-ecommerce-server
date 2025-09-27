@@ -17,7 +17,8 @@ export default function createApp() {
     "http://localhost:5174",
     "http://localhost:8101",
     "https://nicole-pastry-arts.netlify.app",
-    "https://achieved-dive-microwave-occurs.trycloudflare.com"
+    "https://nicole-testing-frontend.bakano.ec",
+    "https://nicole.com.ec"
   ];
 
   const corsOptions = {
