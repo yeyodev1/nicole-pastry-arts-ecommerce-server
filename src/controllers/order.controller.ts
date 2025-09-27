@@ -29,6 +29,7 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       total,
       paymentMethod,
       paymentReference,
+      paymentStatus,
       shippingAddress,
       billingAddress,
       shippingMethod,
@@ -111,6 +112,12 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
     const calculatedDiscount = convertedOrderData.discount || 0;
     const calculatedTotal = calculatedSubtotal + calculatedTax + calculatedShipping - calculatedDiscount;
 
+    // Determine payment status - if paymentReference exists and no explicit status provided, assume paid
+    let finalPaymentStatus = paymentStatus || 'pending';
+    if (!paymentStatus && paymentReference && String(paymentReference).trim() !== '') {
+      finalPaymentStatus = 'paid';
+    }
+
     // Create the order using converted monetary values and calculated total
     const newOrder = new models.order({
       customer,
@@ -124,6 +131,7 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       total: Number(calculatedTotal.toFixed(2)), // Use calculated total instead of provided
       paymentMethod: paymentMethod || 'cash',
       paymentReference,
+      paymentStatus: finalPaymentStatus, // Handle payment status intelligently
       shippingAddress,
       billingAddress,
       shippingMethod: shippingMethod || 'delivery',
