@@ -62,7 +62,9 @@ function isLikelyInCents(value: number, referenceValue?: number): boolean {
   // If we have a reference value, compare magnitudes
   if (referenceValue && typeof referenceValue === 'number' && !isNaN(referenceValue)) {
     // If the value is more than 50x the reference, it's likely in cents
-    return value > (referenceValue * 50);
+    if (value > (referenceValue * 50)) {
+      return true;
+    }
   }
   
   // If value is greater than 1000 and is a whole number, likely cents
@@ -128,8 +130,8 @@ export function convertOrderMonetaryValues(orderData: any): any {
   if (converted.items && Array.isArray(converted.items)) {
     converted.items = converted.items.map((item: any) => ({
       ...item,
-      unitPrice: item.unitPrice !== undefined ? smartCurrencyConvert(item.unitPrice) : item.unitPrice,
-      totalPrice: item.totalPrice !== undefined ? smartCurrencyConvert(item.totalPrice) : item.totalPrice
+      unitPrice: item.unitPrice !== undefined ? smartCurrencyConvert(item.unitPrice, subtotalRef) : item.unitPrice,
+      totalPrice: item.totalPrice !== undefined ? smartCurrencyConvert(item.totalPrice, subtotalRef) : item.totalPrice
     }));
   }
   
