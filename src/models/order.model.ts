@@ -11,6 +11,24 @@ export interface IOrderItem {
   productImage?: string;
 }
 
+// TypeScript interface for Billing Information
+export interface IBillingInfo {
+  cedula: string; // Ecuador national ID (mandatory)
+  fullName: string;
+  phone: string; // Mandatory phone number
+  email?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
+}
+
+// TypeScript interface for Delivery Zones
+export type DeliveryZone = 'samanes_suburbio' | 'norte_sur_esteros' | 'sambo' | 'via_costa' | 'aurora';
+
 // TypeScript interface for Order
 export interface IOrder extends Document {
   _id: Types.ObjectId;
@@ -28,7 +46,10 @@ export interface IOrder extends Document {
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   paymentMethod: 'cash' | 'card' | 'transfer' | 'mercately' | 'payphone' | 'other';
   paymentReference?: string;
-  shippingAddress: {
+  // Mandatory billing information
+  billingInfo: IBillingInfo;
+  // Delivery information (separate from billing)
+  deliveryAddress: {
     street: string;
     city: string;
     state: string;
@@ -36,26 +57,14 @@ export interface IOrder extends Document {
     country: string;
     recipientName: string;
     recipientPhone: string;
-    // Google Maps location fields
+    // Google Maps location fields (optional for faster delivery)
     latitude?: number;
     longitude?: number;
     googleMapsLink?: string;
     locationNotes?: string; // Additional location instructions
   };
-  billingAddress?: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-    recipientName: string;
-    recipientPhone: string;
-    // Google Maps location fields
-    latitude?: number;
-    longitude?: number;
-    googleMapsLink?: string;
-    locationNotes?: string; // Additional location instructions
-  };
+  // Delivery zone and method
+  deliveryZone: DeliveryZone; // Mandatory delivery zone selection
   shippingMethod: 'pickup' | 'delivery' | 'shipping';
   shippingCost: number;
   estimatedDeliveryDate?: Date;
@@ -195,30 +204,99 @@ const orderSchema = new Schema<IOrder>({
     type: String,
     trim: true
   },
-  shippingAddress: {
+  // Mandatory billing information
+  billingInfo: {
+    cedula: {
+      type: String,
+      required: [true, 'Cedula is required'],
+      trim: true,
+      validate: {
+        validator: function(v: string) {
+          // Ecuador cedula validation (10 digits)
+          return /^\d{10}$/.test(v);
+        },
+        message: 'Cedula must be a valid 10-digit Ecuador national ID'
+      }
+    },
+    fullName: {
+      type: String,
+      required: [true, 'Full name is required for billing'],
+      trim: true,
+      maxlength: [100, 'Full name cannot exceed 100 characters']
+    },
+    phone: {
+      type: String,
+      required: [true, 'Phone number is required for billing'],
+      trim: true,
+      validate: {
+        validator: function(v: string) {
+          // Ecuador phone validation (mobile: 09xxxxxxxx or landline: 0xxxxxxxx)
+          return /^0[2-9]\d{7,8}$/.test(v);
+        },
+        message: 'Phone must be a valid Ecuador phone number'
+      }
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      validate: {
+        validator: function(v: string) {
+          if (!v) return true; // Optional field
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        },
+        message: 'Email must be a valid email address'
+      }
+    },
+    address: {
+      street: {
+        type: String,
+        trim: true
+      },
+      city: {
+        type: String,
+        trim: true
+      },
+      state: {
+        type: String,
+        trim: true
+      },
+      zipCode: {
+        type: String,
+        trim: true
+      },
+      country: {
+        type: String,
+        trim: true,
+        default: 'Ecuador'
+      }
+    }
+  },
+  // Delivery information (separate from billing)
+  deliveryAddress: {
     street: {
       type: String,
-      required: [true, 'Shipping street is required'],
+      required: [true, 'Delivery street is required'],
       trim: true
     },
     city: {
       type: String,
-      required: [true, 'Shipping city is required'],
+      required: [true, 'Delivery city is required'],
       trim: true
     },
     state: {
       type: String,
-      required: [true, 'Shipping state is required'],
+      required: [true, 'Delivery state is required'],
       trim: true
     },
     zipCode: {
       type: String,
-      required: [true, 'Shipping zip code is required'],
+      required: [true, 'Delivery zip code is required'],
       trim: true
     },
     country: {
       type: String,
-      required: [true, 'Shipping country is required'],
+      required: [true, 'Delivery country is required'],
       trim: true,
       default: 'Ecuador'
     },
@@ -230,9 +308,16 @@ const orderSchema = new Schema<IOrder>({
     recipientPhone: {
       type: String,
       required: [true, 'Recipient phone is required'],
-      trim: true
+      trim: true,
+      validate: {
+        validator: function(v: string) {
+          // Ecuador phone validation
+          return /^0[2-9]\d{7,8}$/.test(v);
+        },
+        message: 'Recipient phone must be a valid Ecuador phone number'
+      }
     },
-    // Google Maps location fields
+    // Google Maps location fields (optional for faster delivery)
     latitude: {
       type: Number,
       min: [-90, 'Latitude must be between -90 and 90'],
@@ -249,9 +334,22 @@ const orderSchema = new Schema<IOrder>({
       validate: {
         validator: function(v: string) {
           if (!v) return true; // Optional field
-          return /^https:\/\/(www\.)?google\.com\/maps/.test(v) || /^https:\/\/maps\.google\.com/.test(v) || /^https:\/\/goo\.gl\/maps/.test(v);
+          
+          // More permissive validation for various Google Maps and Waze URL formats
+          const validPatterns = [
+            /^https:\/\/(www\.)?google\.com\/maps/,           // Standard Google Maps
+            /^https:\/\/maps\.google\.com/,                   // Alternative Google Maps
+            /^https:\/\/goo\.gl\/maps/,                       // Google Maps short URL
+            /^https:\/\/maps\.app\.goo\.gl/,                  // Google Maps app short URL
+            /^https:\/\/(www\.)?google\.com\.ec\/maps/,       // Ecuador Google Maps
+            /^https:\/\/maps\.google\.com\.ec/,               // Ecuador Google Maps alternative
+            /^https:\/\/(www\.)?waze\.com\/ul/,               // Waze URLs
+            /^https:\/\/(www\.)?waze\.com\/live-map/          // Waze live map URLs
+          ];
+          
+          return validPatterns.some(pattern => pattern.test(v));
         },
-        message: 'Google Maps link must be a valid Google Maps URL'
+        message: 'Link must be a valid Google Maps or Waze URL'
       }
     },
     locationNotes: {
@@ -260,63 +358,12 @@ const orderSchema = new Schema<IOrder>({
       maxlength: [300, 'Location notes cannot exceed 300 characters']
     }
   },
-  billingAddress: {
-    street: {
-      type: String,
-      trim: true
-    },
-    city: {
-      type: String,
-      trim: true
-    },
-    state: {
-      type: String,
-      trim: true
-    },
-    zipCode: {
-      type: String,
-      trim: true
-    },
-    country: {
-      type: String,
-      trim: true,
-      default: 'Ecuador'
-    },
-    recipientName: {
-      type: String,
-      trim: true
-    },
-    recipientPhone: {
-      type: String,
-      trim: true
-    },
-    // Google Maps location fields
-    latitude: {
-      type: Number,
-      min: [-90, 'Latitude must be between -90 and 90'],
-      max: [90, 'Latitude must be between -90 and 90']
-    },
-    longitude: {
-      type: Number,
-      min: [-180, 'Longitude must be between -180 and 180'],
-      max: [180, 'Longitude must be between -180 and 180']
-    },
-    googleMapsLink: {
-      type: String,
-      trim: true,
-      validate: {
-        validator: function(v: string) {
-          if (!v) return true; // Optional field
-          return /^https:\/\/(www\.)?google\.com\/maps/.test(v) || /^https:\/\/maps\.google\.com/.test(v) || /^https:\/\/goo\.gl\/maps/.test(v);
-        },
-        message: 'Google Maps link must be a valid Google Maps URL'
-      }
-    },
-    locationNotes: {
-      type: String,
-      trim: true,
-      maxlength: [300, 'Location notes cannot exceed 300 characters']
-    }
+  // Delivery zone selection (mandatory)
+  deliveryZone: {
+    type: String,
+    enum: ['samanes_suburbio', 'norte_sur_esteros', 'sambo', 'via_costa', 'aurora'],
+    required: [true, 'Delivery zone is required'],
+    index: true
   },
   shippingMethod: {
     type: String,
