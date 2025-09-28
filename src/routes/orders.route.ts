@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createOrder,
+  getDeliveryZones,
   getAllOrders,
   getOrderById,
   updateOrder,
@@ -39,10 +40,28 @@ router.use(authMiddleware.authenticate);
  *   total: number,
  *   paymentMethod?: 'cash' | 'card' | 'transfer' | 'mercately' | 'payphone' | 'other',
  *   paymentReference?: string,
- *   shippingAddress?: object,
- *   billingAddress?: object,
+ *   billingInfo: {
+ *     fullName: string,
+ *     cedula: string,
+ *     phone: string,
+ *     email?: string,
+ *     address?: string
+ *   },
+ *   deliveryAddress: {
+ *     street: string,
+ *     city: string,
+ *     state: string,
+ *     zipCode: string,
+ *     country: string,
+ *     recipientName: string,
+ *     recipientPhone: string,
+ *     latitude?: number,
+ *     longitude?: number,
+ *     googleMapsLink?: string,
+ *     locationNotes?: string
+ *   },
+ *   deliveryZone: 'samanes_suburbio' | 'norte_sur_esteros' | 'sambo' | 'via_costa' | 'aurora',
  *   shippingMethod?: 'pickup' | 'delivery',
- *   shippingCost?: number,
  *   estimatedDeliveryDate?: Date,
  *   notes?: string,
  *   internalNotes?: string,
@@ -52,6 +71,13 @@ router.use(authMiddleware.authenticate);
  * @note orderNumber is automatically generated (format: ORDER-YYYY-MM-XXX)
  */
 router.post("/", wrapAuthHandler(createOrder));
+
+/**
+ * @route GET /api/orders/delivery-zones
+ * @desc Get available delivery zones with pricing
+ * @access Private
+ */
+router.get("/delivery-zones", wrapAuthHandler(getDeliveryZones));
 
 /**
  * @route GET /api/orders
