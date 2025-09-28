@@ -68,6 +68,7 @@ export interface IOrder extends Document {
   shippingMethod: 'pickup' | 'delivery' | 'shipping';
   shippingCost: number;
   estimatedDeliveryDate?: Date;
+  deliveryDateWithMargin?: Date; // Estimated delivery date + 2-3 days margin
   actualDeliveryDate?: Date;
   notes?: string;
   internalNotes?: string; // Only visible to staff/admin
@@ -379,6 +380,10 @@ const orderSchema = new Schema<IOrder>({
   estimatedDeliveryDate: {
     type: Date
   },
+  deliveryDateWithMargin: {
+    type: Date,
+    index: true
+  },
   actualDeliveryDate: {
     type: Date
   },
@@ -432,6 +437,19 @@ orderSchema.virtual('totalItems').get(function(this: IOrder) {
 // Virtual for total products count (unique products)
 orderSchema.virtual('totalProducts').get(function(this: IOrder) {
   return this.items.length;
+});
+
+// Pre-save middleware to calculate delivery date with margin
+orderSchema.pre('save', function(this: IOrder, next: any) {
+  // Calculate delivery date with margin (2-3 days) if estimatedDeliveryDate is provided
+  if (this.estimatedDeliveryDate && !this.deliveryDateWithMargin) {
+    const marginDays = Math.floor(Math.random() * 2) + 2; // Random between 2-3 days
+    const deliveryWithMargin = new Date(this.estimatedDeliveryDate);
+    deliveryWithMargin.setDate(deliveryWithMargin.getDate() + marginDays);
+    this.deliveryDateWithMargin = deliveryWithMargin;
+  }
+  
+  next();
 });
 
 // Pre-save middleware to generate order number if not provided
