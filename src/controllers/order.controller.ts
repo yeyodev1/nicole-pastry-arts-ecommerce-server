@@ -1,15 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
+import { HttpStatusCode } from "axios";
 import models from "../models";
 import { handleControllerError } from "../utils/error-handler";
-import { HttpStatusCode } from "axios";
-import { 
-  validateCoordinates, 
-  autoGenerateGoogleMapsLink,
-  extractCoordinatesFromGoogleMapsLink 
-} from "../utils/google-maps";
 import { convertOrderMonetaryValues } from "../utils/currency";
-import { AuthRequest } from "../types/auth.types";
+import { validateCoordinates, extractCoordinatesFromGoogleMapsLink, autoGenerateGoogleMapsLink } from "../utils/google-maps";
+import { validateEcuadorCedula, validateEcuadorPhone, getDeliveryZonePrice, isValidDeliveryZone, getAvailableDeliveryZones } from "../utils/ecuador-validation";
+import type { AuthRequest } from "../types/auth.types";
+import type { DeliveryZone } from "../models/order.model";
 
 /**
  * Create a new order
@@ -30,10 +28,10 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       paymentMethod,
       paymentReference,
       paymentStatus,
-      shippingAddress,
-      billingAddress,
+      billingInfo,
+      deliveryAddress,
+      deliveryZone,
       shippingMethod,
-      shippingCost,
       estimatedDeliveryDate,
       notes,
       internalNotes,
@@ -61,6 +59,55 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       return;
     }
 
+    // Validate billing information
+    if (!billingInfo || !billingInfo.cedula || !billingInfo.fullName || !billingInfo.phone) {
+      res.status(HttpStatusCode.BadRequest).send({
+        message: "Billing information with cedula, full name, and phone are required."
+      });
+      return;
+    }
+
+    // Validate Ecuador cedula
+    if (!validateEcuadorCedula(billingInfo.cedula)) {
+      res.status(HttpStatusCode.BadRequest).send({
+        message: "Invalid Ecuador cedula format."
+      });
+      return;
+    }
+
+    // Validate Ecuador phone numbers
+    if (!validateEcuadorPhone(billingInfo.phone)) {
+      res.status(HttpStatusCode.BadRequest).send({
+        message: "Invalid Ecuador phone number format for billing."
+      });
+      return;
+    }
+
+    // Validate delivery address
+    if (!deliveryAddress || !deliveryAddress.street || !deliveryAddress.city || 
+        !deliveryAddress.recipientName || !deliveryAddress.recipientPhone) {
+      res.status(HttpStatusCode.BadRequest).send({
+        message: "Complete delivery address information is required."
+      });
+      return;
+    }
+
+    // Validate delivery zone
+    if (!deliveryZone || !isValidDeliveryZone(deliveryZone)) {
+      res.status(HttpStatusCode.BadRequest).send({
+        message: "Valid delivery zone is required."
+      });
+      return;
+    }
+
+    // Validate delivery phone
+    if (!validateEcuadorPhone(deliveryAddress.recipientPhone)) {
+      res.status(HttpStatusCode.BadRequest).send({
+        message: "Invalid Ecuador phone number format for delivery."
+      });
+      return;
+    }
+
     // Validate customer exists
     const customerExists = await models.user.findById(customer);
     if (!customerExists) {
@@ -71,8 +118,8 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
     }
 
     // Validate Google Maps location data if provided
-    if (shippingAddress) {
-      const { latitude, longitude, googleMapsLink } = shippingAddress;
+    if (deliveryAddress) {
+      const { latitude, longitude, googleMapsLink } = deliveryAddress;
       
       // If coordinates are provided, validate them
       if (latitude !== undefined || longitude !== undefined) {
@@ -96,21 +143,29 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       if (googleMapsLink && !latitude && !longitude) {
         const extractedCoords = extractCoordinatesFromGoogleMapsLink(googleMapsLink);
         if (extractedCoords) {
-          shippingAddress.latitude = extractedCoords.latitude;
-          shippingAddress.longitude = extractedCoords.longitude;
+          deliveryAddress.latitude = extractedCoords.latitude;
+          deliveryAddress.longitude = extractedCoords.longitude;
         }
       }
       
       // Auto-generate Google Maps link if coordinates exist but link doesn't
-      autoGenerateGoogleMapsLink(shippingAddress);
+      autoGenerateGoogleMapsLink(deliveryAddress);
     }
 
-    // Calculate the correct total from converted values
-    const calculatedSubtotal = convertedOrderData.subtotal || 0;
-    const calculatedTax = convertedOrderData.tax || 0;
-    const calculatedShipping = convertedOrderData.shippingCost || 0;
+    // Calculate shipping cost based on delivery zone
+    const calculatedShippingCost = getDeliveryZonePrice(deliveryZone as DeliveryZone);
+
+    // Recalculate subtotal from item totals (this is the correct approach)
+    const calculatedSubtotal = Number(convertedOrderData.items.reduce((sum: number, item: any) => sum + item.totalPrice, 0).toFixed(2));
+    
+    // Calculate tax based on the corrected subtotal
+    const calculatedTax = Number((calculatedSubtotal * (taxRate || 0)).toFixed(2));
+    
+    // Use provided discount or default to 0
     const calculatedDiscount = convertedOrderData.discount || 0;
-    const calculatedTotal = calculatedSubtotal + calculatedTax + calculatedShipping - calculatedDiscount;
+    
+    // Calculate final total
+    const calculatedTotal = calculatedSubtotal + calculatedTax + calculatedShippingCost - calculatedDiscount;
 
     // Determine payment status - if paymentReference exists and no explicit status provided, assume paid
     let finalPaymentStatus = paymentStatus || 'pending';
@@ -132,10 +187,11 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       paymentMethod: paymentMethod || 'cash',
       paymentReference,
       paymentStatus: finalPaymentStatus, // Handle payment status intelligently
-      shippingAddress,
-      billingAddress,
+      billingInfo,
+      deliveryAddress,
+      deliveryZone: deliveryZone as DeliveryZone,
       shippingMethod: shippingMethod || 'delivery',
-      shippingCost: calculatedShipping,
+      shippingCost: calculatedShippingCost,
       estimatedDeliveryDate,
       notes,
       internalNotes,
@@ -159,6 +215,25 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
 
   } catch (error) {
     handleControllerError(error, res, "Create order");
+  }
+}
+
+/**
+ * Get available delivery zones with pricing
+ * @route GET /api/orders/delivery-zones
+ */
+async function getDeliveryZones(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const deliveryZones = getAvailableDeliveryZones();
+
+    res.status(HttpStatusCode.Ok).send({
+      message: "Delivery zones retrieved successfully.",
+      deliveryZones
+    });
+    return;
+
+  } catch (error) {
+    handleControllerError(error, res, "Get delivery zones");
   }
 }
 
@@ -470,6 +545,7 @@ async function getOrdersByCustomer(req: AuthRequest, res: Response, next: NextFu
 
 export {
   createOrder,
+  getDeliveryZones,
   getAllOrders,
   getOrderById,
   updateOrder,
