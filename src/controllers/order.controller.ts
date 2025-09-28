@@ -33,6 +33,7 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       deliveryZone,
       shippingMethod,
       estimatedDeliveryDate,
+      deliveryDateWithMargin,
       notes,
       internalNotes,
       mercatelyOrderId
@@ -193,6 +194,7 @@ async function createOrder(req: AuthRequest, res: Response, next: NextFunction):
       shippingMethod: shippingMethod || 'delivery',
       shippingCost: calculatedShippingCost,
       estimatedDeliveryDate,
+      deliveryDateWithMargin,
       notes,
       internalNotes,
       mercatelyOrderId,
