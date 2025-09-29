@@ -9,7 +9,7 @@ export class ResendService {
   constructor() {
     this.resend = new Resend(process.env.RESEND_API_KEY);
     // TODO: Change to 'noreply@nicole.com.ec' when domain is configured
-    this.FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
+    this.FROM_EMAIL = process.env.FROM_EMAIL || 'noreply-nicole@bakano.ec';
   }
 
   async sendEmail(
