@@ -44,7 +44,7 @@ export class ResendService {
     verificationToken: string
   ) {
     try {
-      const baseUrl = process.env.FRONTEND_URL || 'https://nicole.com.ec';
+      const baseUrl = process.env.FRONTEND_URL || 'https://nicole-pastry-arts.netlify.app';
       const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
 
       const emailData: VerificationEmailData = {
@@ -94,7 +94,7 @@ export class ResendService {
               Explora nuestra colección de pasteles, postres y dulces hechos con amor y los mejores ingredientes.
             </p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://nicole.com.ec" style="background: linear-gradient(135deg, #812a73 0%, #9a3485 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: bold;">
+              <a href="https://nicole-pastry-arts.netlify.app" style="background: linear-gradient(135deg, #812a73 0%, #9a3485 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: bold;">
                 Explorar productos
               </a>
             </div>
